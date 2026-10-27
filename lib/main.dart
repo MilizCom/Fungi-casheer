@@ -1,15 +1,16 @@
+// import 'package:admin_fungi/database_seeder.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:get/get.dart';
-import 'package:intl/date_symbol_data_local.dart'; 
-import 'views/admin_dashboard.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'views/dashboard/admin_dashboard.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await initializeDateFormatting('id_ID', null); 
-
+  await initializeDateFormatting('id_ID', null);
+  // await DatabaseSeeder.runSeeder();
   runApp(const MyApp());
 }
 

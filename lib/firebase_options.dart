@@ -41,48 +41,47 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDPJyzf4kyxaOeAoLDHfqc1PgFwAsj1AAA',
-    appId: '1:391055536764:web:aadb5e55cd1cf3d77ecff9',
-    messagingSenderId: '391055536764',
-    projectId: 'fungibite-aplikasi',
-    authDomain: 'fungibite-aplikasi.firebaseapp.com',
-    storageBucket: 'fungibite-aplikasi.firebasestorage.app',
-    measurementId: 'G-9P8GF03NS5',
+    apiKey: 'AIzaSyAlg_CBgSoftpX4mrydWN4qNrqusJADqaQ',
+    appId: '1:512904658573:web:503cabca4129fa32dd2cc4',
+    messagingSenderId: '512904658573',
+    projectId: 'kasir-app-82993',
+    authDomain: 'kasir-app-82993.firebaseapp.com',
+    storageBucket: 'kasir-app-82993.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyApXjp3BSyh4bNDpC_Me6oCrwTM4fzqZks',
-    appId: '1:391055536764:android:01a0df94a80d089a7ecff9',
-    messagingSenderId: '391055536764',
-    projectId: 'fungibite-aplikasi',
-    storageBucket: 'fungibite-aplikasi.firebasestorage.app',
+    apiKey: 'AIzaSyDtJjU1v46VJswySTKjHBntbhZaBdM3Zek',
+    appId: '1:512904658573:android:2452bb38c058aedbdd2cc4',
+    messagingSenderId: '512904658573',
+    projectId: 'kasir-app-82993',
+    storageBucket: 'kasir-app-82993.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAKsX5-wUOwr3VuHqeamKBeofHV00otY4E',
-    appId: '1:391055536764:ios:ec9b24c1d3b4f0827ecff9',
-    messagingSenderId: '391055536764',
-    projectId: 'fungibite-aplikasi',
-    storageBucket: 'fungibite-aplikasi.firebasestorage.app',
+    apiKey: 'AIzaSyAGnHfduaC3FtcBQX4Md9Wv56Vjesx_cIs',
+    appId: '1:512904658573:ios:148893b58bbe7735dd2cc4',
+    messagingSenderId: '512904658573',
+    projectId: 'kasir-app-82993',
+    storageBucket: 'kasir-app-82993.firebasestorage.app',
     iosBundleId: 'com.example.adminFungi',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAKsX5-wUOwr3VuHqeamKBeofHV00otY4E',
-    appId: '1:391055536764:ios:ec9b24c1d3b4f0827ecff9',
-    messagingSenderId: '391055536764',
-    projectId: 'fungibite-aplikasi',
-    storageBucket: 'fungibite-aplikasi.firebasestorage.app',
+    apiKey: 'AIzaSyAGnHfduaC3FtcBQX4Md9Wv56Vjesx_cIs',
+    appId: '1:512904658573:ios:148893b58bbe7735dd2cc4',
+    messagingSenderId: '512904658573',
+    projectId: 'kasir-app-82993',
+    storageBucket: 'kasir-app-82993.firebasestorage.app',
     iosBundleId: 'com.example.adminFungi',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDPJyzf4kyxaOeAoLDHfqc1PgFwAsj1AAA',
-    appId: '1:391055536764:web:851402b8d97f34427ecff9',
-    messagingSenderId: '391055536764',
-    projectId: 'fungibite-aplikasi',
-    authDomain: 'fungibite-aplikasi.firebaseapp.com',
-    storageBucket: 'fungibite-aplikasi.firebasestorage.app',
-    measurementId: 'G-34GHPDKF39',
+    apiKey: 'AIzaSyAlg_CBgSoftpX4mrydWN4qNrqusJADqaQ',
+    appId: '1:512904658573:web:f315388a8f513a5cdd2cc4',
+    messagingSenderId: '512904658573',
+    projectId: 'kasir-app-82993',
+    authDomain: 'kasir-app-82993.firebaseapp.com',
+    storageBucket: 'kasir-app-82993.firebasestorage.app',
   );
+
 }

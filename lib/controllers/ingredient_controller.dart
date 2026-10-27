@@ -1,11 +1,12 @@
 import 'dart:convert';
-
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+
 import '../models/ingredient_model.dart';
 import '../models/admin_product_model.dart';
-import 'package:http/http.dart' as http; // <--- TAMBAHKAN INI
 
 class IngredientController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -20,23 +21,26 @@ class IngredientController extends GetxController {
     super.onInit();
     bindIngredients();
     fetchLastSyncTime();
-
-    // Opsional: Langsung sync saat dibuka pertama kali
-    // syncStockFromTransactions();
   }
 
-  // 1. MONITOR STOK BAHAN BAKU
+  // ==========================================================
+  // 1. MONITOR STOK BAHAN BAKU (REAL-TIME)
+  // ==========================================================
   void bindIngredients() {
     _firestore.collection('ingredients').snapshots().listen((snapshot) {
       var list = snapshot.docs
           .map((doc) => IngredientModel.fromFirestore(doc.data(), doc.id))
           .toList();
+
+      // Sort berdasarkan stok terendah lebih dulu
       list.sort((a, b) => a.stock.compareTo(b.stock));
       ingredients.assignAll(list);
     });
   }
 
+  // ==========================================================
   // 2. CEK WAKTU TERAKHIR SYNC
+  // ==========================================================
   Future<void> fetchLastSyncTime() async {
     try {
       var doc = await _firestore
@@ -47,7 +51,6 @@ class IngredientController extends GetxController {
         String lastTime = doc.data()?['last_checked_at'] ?? '';
         if (lastTime.isNotEmpty) {
           try {
-            // Coba parse format "2026-02-05 19:54:14"
             DateTime dt = DateTime.parse(lastTime);
             lastSyncTimeDisplay.value =
                 "${dt.day}/${dt.month} ${dt.hour}:${dt.minute}";
@@ -56,16 +59,14 @@ class IngredientController extends GetxController {
           }
         }
       } else {
-        // Set default waktu sekarang agar transaksi lama tidak ikut terhitung
         await setInitialSyncPoint();
       }
     } catch (e) {
-      print("Error time: $e");
+      print("Error fetchLastSyncTime: $e");
     }
   }
 
   Future<void> setInitialSyncPoint() async {
-    // Format String: "YYYY-MM-DD HH:mm:ss"
     String now = DateTime.now().toString().substring(0, 19);
     await _firestore.collection('system_settings').doc('stock_sync').set({
       'last_checked_at': now,
@@ -77,7 +78,6 @@ class IngredientController extends GetxController {
   // 3. LOGIKA SYNC DENGAN "TRIPLE LOCK" (ANTI DOUBLE)
   // ==========================================================
   Future<void> syncStockFromTransactions() async {
-    // [LOCK 1] UI Guard: Cegah tombol ditekan 2x saat loading
     if (isSyncing.value) {
       print("⚠️ Sync sedang berjalan, permintaan kedua ditolak.");
       return;
@@ -86,7 +86,6 @@ class IngredientController extends GetxController {
     isSyncing.value = true;
 
     try {
-      // A. Ambil Waktu Terakhir Cek (Time-based filter)
       var settingsDoc = await _firestore
           .collection('system_settings')
           .doc('stock_sync')
@@ -94,9 +93,6 @@ class IngredientController extends GetxController {
       String lastCheck =
           settingsDoc.data()?['last_checked_at'] ?? DateTime.now().toString();
 
-      print("🔍 Mencari transaksi setelah: $lastCheck");
-
-      // B. Query Transaksi Baru
       QuerySnapshot trxSnapshot = await _firestore
           .collection('transaksi')
           .where('transaction_date', isGreaterThan: lastCheck)
@@ -114,12 +110,9 @@ class IngredientController extends GetxController {
         return;
       }
 
-      // Siapkan Batch (Atomic Operation)
-      // Ini memastikan Potong Stok & Update Status terjadi bersamaan
       WriteBatch batch = _firestore.batch();
       int processedCount = 0;
 
-      // C. Ambil Master Produk (untuk Resep)
       QuerySnapshot productSnapshot = await _firestore
           .collection('products')
           .get();
@@ -132,7 +125,6 @@ class IngredientController extends GetxController {
         productMapByName[p.name.toLowerCase().trim()] = p;
       }
 
-      // D. Loop Setiap Transaksi
       for (var doc in trxSnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         List<dynamic> items = data['items'] ?? [];
@@ -142,36 +134,27 @@ class IngredientController extends GetxController {
               .toString()
               .toLowerCase()
               .trim();
-          String variantName = (item['variant'] ?? '-')
-              .toString()
-              .trim(); // Ambil Variant (misal "L" atau "M")
+          String variantName = (item['variant'] ?? '-').toString().trim();
           int qtySold = (item['qty'] ?? 0) as int;
 
-          // Pencocokan Nama Produk
           if (productMapByName.containsKey(productName)) {
             var productMaster = productMapByName[productName]!;
             List<RecipeItem> targetRecipe = [];
 
-            // LOGIKA PEMILIHAN RESEP:
-            // 1. Cek apakah ada resep KHUSUS untuk varian ini? (Misal varian "L")
             if (variantName != '-' &&
                 productMaster.variantRecipes.containsKey(variantName)) {
               targetRecipe = productMaster.variantRecipes[variantName]!;
-              print(" -> Pakai Resep Varian [$variantName] untuk $productName");
-            }
-            // 2. Jika tidak ada resep varian, pakai resep DEFAULT
-            else {
+            } else {
               targetRecipe = productMaster.recipe;
-              print(" -> Pakai Resep Default untuk $productName");
             }
 
-            // Eksekusi Potong Stok
             if (targetRecipe.isNotEmpty) {
               for (var recipeItem in targetRecipe) {
                 int totalDeduct = recipeItem.amount * qtySold;
                 DocumentReference ingRef = _firestore
                     .collection('ingredients')
                     .doc(recipeItem.ingredientId);
+
                 batch.update(ingRef, {
                   'stock': FieldValue.increment(-totalDeduct),
                 });
@@ -182,7 +165,6 @@ class IngredientController extends GetxController {
         processedCount++;
       }
 
-      // E. Update Waktu Terakhir Cek (Hanya jika ada data)
       if (trxSnapshot.docs.isNotEmpty) {
         String newLastCheck = trxSnapshot.docs.last['transaction_date'];
         batch.set(_firestore.collection('system_settings').doc('stock_sync'), {
@@ -190,12 +172,9 @@ class IngredientController extends GetxController {
         });
       }
 
-      // F. EKSEKUSI SEMUA PERUBAHAN
       if (processedCount > 0) {
         await batch.commit();
-        print("✅ $processedCount transaksi berhasil diproses & dikunci.");
-
-        fetchLastSyncTime(); // Update jam di UI
+        fetchLastSyncTime();
         Get.snackbar(
           "Sukses",
           "$processedCount transaksi diproses & stok dipotong.",
@@ -203,7 +182,6 @@ class IngredientController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        // Jika masuk sini, berarti ada transaksi baru TAPI semuanya sudah berstatus true (sudah diproses sebelumnya)
         Get.snackbar(
           "Info",
           "Semua transaksi baru sudah terhitung sebelumnya (Aman).",
@@ -212,7 +190,6 @@ class IngredientController extends GetxController {
         );
       }
     } catch (e) {
-      print("❌ Sync Error: $e");
       Get.snackbar(
         "Error",
         "Gagal sync: $e",
@@ -220,13 +197,12 @@ class IngredientController extends GetxController {
         colorText: Colors.white,
       );
     } finally {
-      // Buka Lock UI
       isSyncing.value = false;
     }
   }
 
   // ==========================================================
-  // 4. CRUD BAHAN BAKU (SAVE INGREDIENT)
+  // 4. CRUD BAHAN BAKU (SAVE INGREDIENT REGULER)
   // ==========================================================
   Future<void> saveIngredient({
     String? id,
@@ -234,26 +210,38 @@ class IngredientController extends GetxController {
     required String unit,
     required int stock,
     int minStock = 10,
+    int minBarStock = 10,
+    bool optionalStock = false,
   }) async {
     isLoading.value = true;
     try {
       if (id == null) {
+        IngredientModel newIng = IngredientModel(
+          id: '',
+          name: name,
+          unit: unit,
+          stock: stock,
+          barStock: 0,
+          minStock: minStock,
+          minBarStock: minBarStock,
+          optionalStock: optionalStock,
+          unitPrice: 0,
+        );
+
         await _firestore.collection('ingredients').add({
-          'name': name,
-          'unit': unit,
-          'stock': stock,
-          'min_stock': minStock,
-          'created_at': FieldValue.serverTimestamp(),
+          ...newIng.toMap(),
+          'is_mixed': false, // Penanda bahwa ini bahan baku mentah
         });
       } else {
         await _firestore.collection('ingredients').doc(id).update({
           'name': name,
           'unit': unit,
-          'stock': stock,
           'min_stock': minStock,
+          'min_bar_stock': minBarStock,
+          'optional_stock': optionalStock,
+          'updated_at': FieldValue.serverTimestamp(),
         });
       }
-      Get.back();
     } catch (e) {
       Get.snackbar("Error", "$e");
     } finally {
@@ -261,6 +249,91 @@ class IngredientController extends GetxController {
     }
   }
 
+  // ========================================================================
+  // 5. RESTOCK & HARGA RATA-RATA TERTIMBANG (WAC)
+  // ========================================================================
+  Future<void> restockIngredient({
+    required IngredientModel ingredient,
+    required int addedQty,
+    required int totalPrice,
+  }) async {
+    try {
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+
+      final db = FirebaseFirestore.instance;
+      DocumentReference ingRef = db
+          .collection('ingredients')
+          .doc(ingredient.id);
+      DocumentReference logRef = db.collection('restock_logs').doc();
+
+      await db.runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(ingRef);
+
+        if (!snapshot.exists) {
+          throw Exception("Data bahan baku tidak ditemukan di database!");
+        }
+
+        Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+        int stokLama = (data['stock'] as num?)?.toInt() ?? 0;
+        int hargaSatuanLama = (data['unit_price'] as num?)?.toInt() ?? 0;
+
+        if (stokLama < 0) stokLama = 0;
+
+        int totalNilaiLama = stokLama * hargaSatuanLama;
+        int totalNilaiBaru = totalPrice;
+
+        int stokTotalSekarang = stokLama + addedQty;
+        int hargaRataRataBaru = 0;
+
+        if (stokTotalSekarang > 0) {
+          hargaRataRataBaru =
+              (totalNilaiLama + totalNilaiBaru) ~/ stokTotalSekarang;
+        }
+
+        transaction.update(ingRef, {
+          'stock': stokTotalSekarang,
+          'unit_price': hargaRataRataBaru,
+        });
+
+        transaction.set(logRef, {
+          'ingredient_id': ingredient.id,
+          'ingredient_name': ingredient.name,
+          'qty_added': addedQty,
+          'unit': ingredient.unit,
+          'total_price': totalPrice,
+          'unit_price': hargaRataRataBaru,
+          'restock_date': DateFormat(
+            'yyyy-MM-dd HH:mm:ss',
+          ).format(DateTime.now()),
+          'timestamp': FieldValue.serverTimestamp(),
+          'restock_by': 'Admin',
+        });
+      });
+
+      Get.back();
+      Get.snackbar(
+        "Berhasil",
+        "Stok ditambah dan Harga Modal diperbarui otomatis.",
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      if (Get.isDialogOpen == true) Get.back();
+      Get.snackbar(
+        "Gagal",
+        "Terjadi kesalahan saat menambah stok: $e",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  // ==========================================================
+  // 6. MANAJEMEN RESEP PRODUK
+  // ==========================================================
   Future<void> saveRecipeToProduct(
     String productId,
     List<RecipeItem> newRecipe, {
@@ -274,7 +347,6 @@ class IngredientController extends GetxController {
               .toList(),
         });
       } else {
-        // Simpan sebagai Resep Utama
         await _firestore.collection('products').doc(productId).update({
           'recipe': newRecipe.map((e) => e.toMap()).toList(),
         });
@@ -287,11 +359,12 @@ class IngredientController extends GetxController {
       Get.snackbar("Gagal", "$e");
     }
   }
-  // Masukkan di dalam class IngredientController
 
+  // ==========================================================
+  // 7. EXPORT STOK KE GOOGLE SPREADSHEET
+  // ==========================================================
   Future<void> exportStockToSpreadsheet() async {
     try {
-      // 1. Indikator Loading
       Get.dialog(
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
@@ -303,7 +376,6 @@ class IngredientController extends GetxController {
         return;
       }
 
-      // 2. Siapkan Data JSON
       List<Map<String, dynamic>> stockData = ingredients.map((ing) {
         return {
           "name": ing.name,
@@ -313,15 +385,12 @@ class IngredientController extends GetxController {
         };
       }).toList();
 
-      // 3. Siapkan Body Request
       Map<String, dynamic> payload = {
-        "reportType": "stock", // <--- KUNCI PENTING
+        "reportType": "stock",
         "filterLabel": "Semua Stok",
         "items": stockData,
       };
 
-      // 4. Kirim ke Google Script
-      // GANTI URL INI DENGAN URL DEPLOYMENT ANDA YANG BARU
       const String url =
           "https://script.google.com/macros/s/AKfycbzJDQZAuJTdCecUU5rsXfSLy4tM0WYsEjWnIGSMby4KUE5zE1SZ3tMSHNuWBUNX5Bib/exec";
 
@@ -331,7 +400,7 @@ class IngredientController extends GetxController {
         headers: {"Content-Type": "text/plain"},
       );
 
-      Get.back(); // Tutup Loading
+      Get.back();
 
       if (response.statusCode == 200 || response.statusCode == 302) {
         Get.snackbar(
@@ -344,13 +413,65 @@ class IngredientController extends GetxController {
         throw "Server error: ${response.statusCode}";
       }
     } catch (e) {
-      Get.back(); // Tutup Loading jika error
+      if (Get.isDialogOpen == true) Get.back();
       Get.snackbar(
         "Gagal",
         "Gagal export stok: $e",
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+    }
+  }
+
+  // ==========================================================
+  // 8. CRUD BAHAN CAMPURAN (SEMI-FINISHED GOODS)
+  // ==========================================================
+  Future<void> saveMixedIngredient({
+    String? id,
+    required String name,
+    required String unit,
+    int minStock = 10,
+    int minBarStock = 10,
+    bool optionalStock = false,
+    required int defaultYield, // Parameter baru
+    required List<Map<String, dynamic>> composition,
+  }) async {
+    isLoading.value = true;
+    try {
+      if (id == null) {
+        Map<String, dynamic> newMixedIng = {
+          'name': name,
+          'unit': unit,
+          'stock': 0,
+          'bar_stock': 0,
+          'min_stock': minStock,
+          'min_bar_stock': minBarStock,
+          'optional_stock': optionalStock,
+          'unit_price': 0,
+          'is_mixed': true,
+          'default_yield': defaultYield, // Simpan ke database
+          'composition': composition,
+          'created_at': FieldValue.serverTimestamp(),
+          'updated_at': FieldValue.serverTimestamp(),
+        };
+
+        await _firestore.collection('ingredients').add(newMixedIng);
+      } else {
+        await _firestore.collection('ingredients').doc(id).update({
+          'name': name,
+          'unit': unit,
+          'min_stock': minStock,
+          'min_bar_stock': minBarStock,
+          'optional_stock': optionalStock,
+          'default_yield': defaultYield, // Update ke database
+          'composition': composition,
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (e) {
+      Get.snackbar("Error", "Gagal menyimpan bahan campuran: $e");
+    } finally {
+      isLoading.value = false;
     }
   }
 }

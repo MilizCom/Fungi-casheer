@@ -18,7 +18,6 @@ class AdminMenuController extends GetxController {
   // 1. LIHAT SEMUA PRODUK (REALTIME)
   void bindProducts() {
     isLoading.value = true;
-    // Kita urutkan berdasarkan Nama agar rapi di layar
     _firestore.collection('products').orderBy('name').snapshots().listen((
       snapshot,
     ) {
@@ -29,37 +28,35 @@ class AdminMenuController extends GetxController {
     });
   }
 
-  // 2. TAMBAH PRODUK BARU
-  Future<void> addProduct(String name, int price, String category) async {
+  // Di dalam AdminMenuController.dart
+  Future<void> addProduct({
+    required String name,
+    required int price,
+    required String category,
+    required String subCategory, // <-- TAMBAHKAN INI
+    Map<String, int> variantPrices = const {},
+    Map<String, dynamic> variantRecipes = const {},
+    List<dynamic> defaultRecipe = const [],
+  }) async {
     try {
       await _firestore.collection('products').add({
         'name': name,
         'price': price,
         'category': category,
+        'subCategory':
+            subCategory, // <-- TAMBAHKAN INI (Pastikan sesuai kolom Firebase)
         'image_path': '',
-        // Kita hapus 'stock' dan 'min_stock' karena sekarang pakai Bahan Baku
-        'recipe': [], // Default resep kosong saat dibuat
+        'variantPrices': variantPrices,
+        'variantRecipes': variantRecipes,
+        'recipe': defaultRecipe,
         'created_at': FieldValue.serverTimestamp(),
       });
-      Get.back();
-      Get.snackbar(
-        "Sukses",
-        "Produk berhasil ditambahkan. Jangan lupa atur Resep-nya!",
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
     } catch (e) {
-      Get.snackbar(
-        "Error",
-        "$e",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      throw Exception(e.toString());
     }
   }
 
   // 3. EDIT PRODUK (Nama, Harga, Kategori)
-  // Note: Resep tidak diubah di sini, tapi di RecipeEditorDialog
   Future<void> updateProduct(
     String id,
     String name,

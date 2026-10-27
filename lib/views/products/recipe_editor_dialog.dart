@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../models/admin_product_model.dart';
-import '../models/ingredient_model.dart';
-import '../controllers/ingredient_controller.dart';
+import '../../models/admin_product_model.dart';
+import '../../models/ingredient_model.dart';
+import '../../controllers/ingredient_controller.dart';
 
 class RecipeEditorDialog extends StatefulWidget {
   final AdminProductModel product;

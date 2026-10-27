@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "391055536764",
-    "project_id": "fungibite-aplikasi",
-    "storage_bucket": "fungibite-aplikasi.firebasestorage.app"
+    "project_number": "512904658573",
+    "project_id": "kasir-app-82993",
+    "storage_bucket": "kasir-app-82993.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:391055536764:android:01a0df94a80d089a7ecff9",
+        "mobilesdk_app_id": "1:512904658573:android:2452bb38c058aedbdd2cc4",
         "android_client_info": {
           "package_name": "com.example.admin_fungi"
         }
@@ -15,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyApXjp3BSyh4bNDpC_Me6oCrwTM4fzqZks"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:391055536764:android:15385d511149c5bb7ecff9",
-        "android_client_info": {
-          "package_name": "com.example.fungi_casheer"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyApXjp3BSyh4bNDpC_Me6oCrwTM4fzqZks"
+          "current_key": "AIzaSyDtJjU1v46VJswySTKjHBntbhZaBdM3Zek"
         }
       ],
       "services": {
